@@ -12,6 +12,7 @@ dashboardPage(
     collapsed =T,
     sidebarMenu(
       menuItem("Dashboard", tabName="dashboard", icon=icon("dashboard", verify_fa=F)),
+      menuItem("Table", tabName="datatable", icon=icon("table", verify_fa=F)),
       menuItem("Source code", icon = icon("file-code-o", verify_fa=F), href = "https://github.com/syvert-h?tab=repositories")
     )
   ),
@@ -121,6 +122,26 @@ dashboardPage(
                 plotlyOutput("top_hiring_plot", height="329px")
               )
             )
+          )
+        )
+      ),
+      tabItem(tabName="datatable",
+        fluidRow(
+          column(
+            width=3,
+            selectInput(
+              "country_table",
+              label="Select a country:",
+              choices=c("Australia", "New Zealand"),
+              width=NULL,
+              selected="Australia"
+            )
+          )
+        ),
+        fluidRow(
+          column(
+            width=12,
+            DT::dataTableOutput("jobs_datatable")
           )
         )
       )

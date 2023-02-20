@@ -11,9 +11,11 @@ function(input, output, session) {
   ### SETUP ###
   # Store active dataframes
   rv = reactiveValues(
-    aus = read_csv(".\\data\\all_data_jobs_australia.csv"),
-    nz = read_csv(".\\data\\all_data_jobs_new_zealand.csv") %>%
-      filter(`region` != "Chatham Islands"),
+    aus = read_csv("all_data_jobs_australia.csv") %>%
+      mutate(`date_posted`=as.Date(`date_posted`, format="%d-%m-%Y")),
+    nz = read_csv("all_data_jobs_new_zealand.csv") %>%
+      filter(`region` != "Chatham Islands") %>%
+      mutate(`date_posted`=as.Date(`date_posted`, format="%d-%m-%Y")),
     df = NULL
   )
   observeEvent(input$country_dash, {
@@ -202,7 +204,7 @@ function(input, output, session) {
   # Map of Job Locations
   create_map = function() {
     data = rv$df
-    map_coords = ozmap("states")
+    map_coords = ozmap_states
     points = data %>%
       group_by(`city_lat`,`city_lng`,`region`) %>%
       count() %>%
@@ -230,4 +232,14 @@ function(input, output, session) {
     return(ggplotly(p, dynamicTicks=T))
   }
   output$jobs_map = renderPlotly({create_map()})
+  
+  
+  ## DataTable ##
+  observeEvent(input$country_table, {
+    output$jobs_datatable = renderDataTable({
+      current = rv$aus
+      if (input$country_table == "New Zealand") {current = rv$nz}
+      return(current %>% arrange(desc(`date_posted`)))
+    }, options=list(scrollX=TRUE))
+  })
 }
