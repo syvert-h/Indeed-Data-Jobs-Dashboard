@@ -16,7 +16,8 @@ function(input, output, session) {
     nz = read_csv("all_data_jobs_new_zealand.csv") %>%
       filter(`region` != "Chatham Islands") %>%
       mutate(`date_posted`=as.Date(`date_posted`, format="%d-%m-%Y")),
-    df = NULL
+    df = NULL,
+    df_non_text = NULL # temp
   )
   observeEvent(input$country_dash, {
     # store current dataframe
@@ -30,11 +31,24 @@ function(input, output, session) {
         choices=c("All", sort(regions)) # NOTE: currently ""
       )
     })
+    rv$df_non_text = rv$df
   })
   observeEvent(input$region_dash, {
     if (input$country_dash == "New Zealand") {rv$df = rv$nz} else {rv$df = rv$aus}
     if (input$region_dash != "All") {
       rv$df = rv$df %>% filter(`region` == input$region_dash)
+    }
+    rv$df_non_text = rv$df
+  })
+  observeEvent(input$kw_dash, {
+    if (input$kw_dash != "") {
+      rv$df = rv$df %>% filter(grepl(tolower(input$kw_dash), `title`))
+      output$kw_dash_output = renderText({
+        sprintf("Filtered by: %s", tolower(input$kw_dash))
+      })
+    } else {
+      rv$df = rv$df_non_text
+      output$kw_dash_output = renderText({"Filtered by: All"})
     }
   })
   

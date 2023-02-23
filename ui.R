@@ -33,6 +33,21 @@ dashboardPage(
           column(
             width=3,
             uiOutput("region_dash")
+          ),
+          column(
+            width=3,
+            textInput(
+              "kw_dash",
+              label="Keyword Search Job Title:",
+              value="",
+              width=NULL,
+              placeholder="data analyst"
+            )
+          ),
+          column(
+            width=3,
+            textOutput("kw_dash_output"),
+            tags$style(type="text/css", "#kw_dash_output {width: 100%; text-align:left; padding:30px;}")
           )
         ),
         fluidRow(
