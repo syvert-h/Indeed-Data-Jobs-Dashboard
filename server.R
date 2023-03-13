@@ -16,45 +16,59 @@ function(input, output, session) {
     nz = read_csv("all_data_jobs_new_zealand.csv") %>%
       filter(`region` != "Chatham Islands") %>%
       mutate(`date_posted`=as.Date(`date_posted`, format="%d-%m-%Y")),
-    df = NULL,
-    df_non_text = NULL # temp
+    df = NULL, # current dataframe operating on
+    applied_country = NULL,
+    applied_region = NULL,
+    applied_kw = NULL
   )
-  observeEvent(input$country_dash, {
-    # store current dataframe
-    if (input$country_dash == "New Zealand") {rv$df = rv$nz} else {rv$df = rv$aus}
+  
+  observeEvent(input$country_dash, { # MUST - fills region dropdown
+    regions = rv$aus$`region` %>% unique() %>% na.omit() %>% sort()
+    if (input$country_dash == "New Zealand") {
+      regions = rv$nz$`region` %>% unique() %>% na.omit() %>% sort()
+    }
     # fill region dropdown
-    regions = rv$df$`region` %>% unique() %>% na.omit()
     output$region_dash = renderUI({
       selectInput(
         "region_dash",
         label="Select a region:",
-        choices=c("All", sort(regions)) # NOTE: currently ""
+        choices=c("All", regions),
+        selected="All"
       )
     })
-    rv$df_non_text = rv$df
   })
-  observeEvent(input$region_dash, {
-    if (input$country_dash == "New Zealand") {rv$df = rv$nz} else {rv$df = rv$aus}
+  observeEvent(input$go_filter, {
+    # store applied values (since reactive)
+    current_df = rv$aus
+    rv$applied_country = input$country_dash
+    rv$applied_region = input$region_dash
+    rv$applied_kw = input$kw_dash
+    # initialise country df
+    if (input$country_dash == "New Zealand") {current_df = rv$nz}
+    # filter by region
     if (input$region_dash != "All") {
-      rv$df = rv$df %>% filter(`region` == input$region_dash)
+      current_df = current_df %>% filter(`region` == input$region_dash)
     }
-    rv$df_non_text = rv$df
-  })
-  observeEvent(input$kw_dash, {
+    # filter by text
     if (input$kw_dash != "") {
-      rv$df = rv$df %>% filter(grepl(tolower(input$kw_dash), `title`))
-      output$kw_dash_output = renderText({
-        sprintf("Filtered by: %s", tolower(input$kw_dash))
-      })
-    } else {
-      rv$df = rv$df_non_text
-      output$kw_dash_output = renderText({"Filtered by: All"})
+      current_df = current_df %>% filter(grepl(tolower(input$kw_dash), `title`))
     }
+    # store as the active dataframe
+    rv$df = current_df # IMPORTANT
+    # display applied filters
+    output$kw_dash_output = renderUI({
+      HTML(
+        sprintf("<b>Filters Applied:</b><br/>Country: %s, Region: %s, Keyword: %s",
+              rv$applied_country, rv$applied_region, ifelse(rv$applied_kw == "", "None", rv$applied_kw)
+        )
+      )
+    })
   })
   
   ### OUTPUT ###
   ## Skills Barplots
   skills_barplot = function(col) {
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     p = rv$df[,col] %>%
       na.omit() %>%
       mutate(`Skills`=str_split(get(col), ",")) %>%
@@ -76,6 +90,7 @@ function(input, output, session) {
   
   ## Job Type Donut Charts
   output$jobtype_plot = renderPlotly({
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     data = rv$df %>%
       replace_na(list(`job_type`="Not Specified", `remote_type`="Not Remote"))
     jt = data %>%
@@ -93,8 +108,8 @@ function(input, output, session) {
               domain=list(row=0, column=1), textinfo='label+percent', textposition="inside") %>%
       layout(
         title=list(text=sprintf("Job Types in %s%s", 
-                        ifelse(input$region_dash == "All", "", paste0(input$region_dash, ", ")), 
-                        input$country_dash),
+                        ifelse(rv$applied_region == "All", "", paste0(rv$applied_region, ", ")), 
+                        rv$applied_country),
                    y=0.975
                    ),
         showlegend = F,
@@ -113,6 +128,7 @@ function(input, output, session) {
   
   ## Salary Hist+Box Plots
   salary_plot = function() {
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     # filter data
     salary_types = c("Yearly"="year","Monthly"="month","Weekly"="week","Daily"="day","Hourly"="hour")
     data = rv$df %>%
@@ -135,8 +151,8 @@ function(input, output, session) {
     fig = subplot(box, hist, nrows=2, shareX=T, heights = c(0.2, 0.8)) %>%
       layout(
         title=list(text=sprintf("Salary Distribution for %s%s", 
-                                ifelse(input$region_dash == "All", "", paste0(input$region_dash, ", ")), 
-                                input$country_dash
+                                ifelse(rv$applied_region == "All", "", paste0(rv$applied_region, ", ")), 
+                                rv$applied_country
         )
         )
       )
@@ -149,6 +165,7 @@ function(input, output, session) {
   output$salary_hourly = renderPlotly({salary_plot()})
   # Salary Table
   output$salary_table = renderDataTable({
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     salary_types = c("Yearly"="year","Monthly"="month","Weekly"="week","Daily"="day","Hourly"="hour")
     data = rv$df %>%
       select(`city`, `region`, `salary`, `salary_type`) %>%
@@ -160,6 +177,7 @@ function(input, output, session) {
   
   # Remote Jobs Line Plot
   output$remote_num_plot = renderPlotly({
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     data = rv$df %>%
       select(`date_posted`,`remote`) %>%
       na.omit() %>%
@@ -185,6 +203,7 @@ function(input, output, session) {
   
   # Top Hiring Companies Plot
   output$top_hiring_plot = renderPlotly({
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     p = rv$df$`company` %>%
       na.omit() %>%
       table() %>% as_tibble() %>%
@@ -200,6 +219,7 @@ function(input, output, session) {
   
   # Education Level Donut Chart
   output$education_pie = renderPlotly({
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     data = rv$df %>%
       replace_na(list(`degree_type`="Not Specified")) %>%
       pull(`degree_type`) %>% str_split(pattern=",") %>% unlist() %>%
@@ -208,15 +228,16 @@ function(input, output, session) {
       add_pie(data=data, labels= ~`.`, values= ~`n`, name="Degree Type", hole=0.4, 
               textinfo='label+percent', textposition="inside") %>%
       layout(
-        title = sprintf("Education Level Required in %s%s", 
-                        ifelse(input$region_dash == "All", "", paste0(input$region_dash, ", ")), 
-                        input$country_dash)
+        title = sprintf("Education Required in %s%s", 
+                        ifelse(rv$applied_region == "All", "", paste0(rv$applied_region, ", ")), 
+                        rv$applied_country)
       )
     return(fig)
   })
   
   # Map of Job Locations
   create_map = function() {
+    if (is.null(rv$df)) {return()} # filters not yet applied - display blank
     data = rv$df
     map_coords = ozmap_states
     points = data %>%
@@ -239,8 +260,8 @@ function(input, output, session) {
           scale_size(range = c(.1, 15), name="")
     }
     p = p + labs(title = sprintf("Job Locations in %s%s", 
-                                 ifelse(input$region_dash == "All", "", paste0(input$region_dash, ", ")), 
-                                 input$country_dash),
+                                 ifelse(rv$applied_region == "All", "", paste0(rv$applied_region, ", ")), 
+                                 rv$applied_country),
                  x="Longitude", y="Latitude") +
       theme_minimal()
     return(ggplotly(p, dynamicTicks=T))

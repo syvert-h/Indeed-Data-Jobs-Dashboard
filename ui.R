@@ -27,6 +27,7 @@ dashboardPage(
               "country_dash",
               label="Select a country:",
               choices=c("Australia", "New Zealand"),
+              selected="Australia",
               width=NULL
             )
           ),
@@ -40,14 +41,19 @@ dashboardPage(
               "kw_dash",
               label="Keyword Search Job Title:",
               value="",
-              width=NULL,
-              placeholder="data analyst"
+              width=NULL
             )
           ),
           column(
-            width=3,
-            textOutput("kw_dash_output"),
-            tags$style(type="text/css", "#kw_dash_output {width: 100%; text-align:left; padding:30px;}")
+            width=1, style="margin-top: 25px; margin-left: 0px",
+            actionButton(
+              "go_filter",
+              label="Apply"
+            )
+          ),
+          column(
+            width=2,
+            htmlOutput("kw_dash_output")
           )
         ),
         fluidRow(
