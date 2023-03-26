@@ -274,7 +274,7 @@ function(input, output, session) {
     output$jobs_datatable = renderDataTable({
       current = rv$aus
       if (input$country_table == "New Zealand") {current = rv$nz}
-      return(current %>% arrange(desc(`date_posted`)))
+      return(current %>% arrange(desc(`date_posted`)) %>% select(-c(`description_summ`,`city_lat`,`city_lng`)))
     }, options=list(scrollX=TRUE))
   })
 }
