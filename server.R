@@ -4,6 +4,7 @@ library(plotly)
 library(maps) # map for nz
 library(ozmaps) # map for aus
 library(sf) # map for aus
+library(rdrop2)
 
 function(input, output, session) {
   # Store active dataframe
@@ -13,11 +14,14 @@ function(input, output, session) {
     country = NULL, # holds active country
     region = NULL # holds active region(s)
   )
+  # Define the dataframes
+  nz_df <- drop_read_csv("Datasets/Indeed Data Jobs/all_data_jobs_new_zealand.csv", check.names=F)
+  aus_df <- drop_read_csv("Datasets/Indeed Data Jobs/all_data_jobs_australia.csv", check.names=F)
+  
   
   # Store current country's data to update region dropdown
   observeEvent(input$country, {
-    if (input$country == "Australia") {rv$df = read.csv('all_data_jobs_australia.csv')}
-    else {rv$df = read.csv('all_data_jobs_new_zealand.csv')}
+    if (input$country == "Australia") {rv$df = aus_df} else {rv$df = nz_df}
     rv$df = rv$df %>% mutate(
       `date_posted` = as.Date(`date_posted`, format="%d-%m-%Y"),
       `remote` = ifelse(`remote` == 'True', 'Remote', 'Non-Remote')
@@ -103,7 +107,7 @@ function(input, output, session) {
     req(input$go)
     data = rv$data %>%
       select(`date_posted`,`remote`) %>% na.omit() %>%
-      filter(`date_posted` > Sys.Date() %m+% months(-2)) %>% # past 2 months
+      filter(`date_posted` > Sys.Date() %m+% months(-12)) %>% # past 12 months
       group_by(`date_posted`,`remote`) %>% count() %>%
       pivot_wider(names_from=`remote`, values_from=`n`) %>%
       replace_na(list(`Non-Remote`=0, `Remote`=0)) %>% ungroup()
