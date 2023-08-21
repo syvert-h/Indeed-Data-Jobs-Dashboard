@@ -4,7 +4,7 @@ library(plotly)
 library(maps) # map for nz
 library(ozmaps) # map for aus
 library(sf) # map for aus
-library(rdrop2)
+library(aws.s3)
 
 function(input, output, session) {
   # Store active dataframe
@@ -14,10 +14,25 @@ function(input, output, session) {
     country = NULL, # holds active country
     region = NULL # holds active region(s)
   )
-  # Define the dataframes
-  nz_df <- drop_read_csv("Datasets/Indeed Data Jobs/all_data_jobs_new_zealand.csv", check.names=F)
-  aus_df <- drop_read_csv("Datasets/Indeed Data Jobs/all_data_jobs_australia.csv", check.names=F)
   
+  ### Define the dataframes
+  ## Setup AWS S3 Access
+  s3BucketName = scan("bucketname.txt", what="txt")
+  s3Filename_aus = scan("s3_filename_aus.txt", what="txt")
+  s3Filename_nz = scan("s3_filename_nz.txt", what="txt")
+  readRenviron(".Renviron") # read from current directories .Renviron file (not the default one)
+  Sys.setenv(
+    "AWS_ACCESS_KEY_ID" = Sys.getenv("AWS_ACCESS_KEY_ID"),
+    "AWS_SECRET_ACCESS_KEY" = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+    "AWS_DEFAULT_REGION" = Sys.getenv('AWS_DEFAULT_REGION') # S3 bucket region
+  )
+  # Note: Error 301 -- from Sys.getenv() not working as intended; value extracted from .Renviron not correct
+  # Note: Error 401 -- make sure permissions in both IAM user and S3 Bucket are correct; PLUS make sure IAM User created with pragmatic access (should have option for user and password at creation)
+  nz_df = s3read_using(read.csv, object=s3Filename_nz, bucket=s3BucketName)
+  aus_df = s3read_using(read.csv, object=s3Filename_aus, bucket=s3BucketName)
+  
+  # Temporary text instructions (at startup)
+  output$temp_text = renderText({"Click 'Apply' to get started!"})
   
   # Store current country's data to update region dropdown
   observeEvent(input$country, {

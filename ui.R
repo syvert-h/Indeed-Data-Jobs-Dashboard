@@ -19,7 +19,11 @@ fluidPage(
                            label='Keyword Search Job Title:',
                            value=''
                  ),
-                 actionButton('go', label='Apply')
+                 actionButton('go', label='Apply'),
+                 conditionalPanel(
+                   "input.go == 0",
+                   textOutput('temp_text')
+                 )
     ),
     
     mainPanel(width=10,
