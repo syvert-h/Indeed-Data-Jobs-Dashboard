@@ -61,11 +61,9 @@ fluidPage(
                          ),
                          fluidRow(column(uiOutput('market_headers'), width=12)),
                          fluidRow(
-                           column(width=7, plotlyOutput('jobs_map', height='500px')),
-                           column(width=5,
-                                  plotlyOutput('education', height='250px'),
-                                  plotlyOutput('top_hiring', height='250px')
-                           )
+                           column(width=4, plotlyOutput('jobs_map', height='500px')),
+                           column(width=4, plotlyOutput('education', height='500px')),
+                           column(width=4, plotlyOutput('top_hiring', height='500px'))
                          )
                 ),
                 tabPanel('Dataset', column(dataTableOutput('datatable'), width=12)),

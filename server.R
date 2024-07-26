@@ -1,9 +1,7 @@
 library(shiny)
 library(tidyverse)
 library(plotly)
-library(maps) # map for nz
-library(ozmaps) # map for aus
-library(sf) # map for aus
+library(sf)
 library(aws.s3)
 
 function(input, output, session) {
@@ -30,6 +28,20 @@ function(input, output, session) {
   # Note: Error 401 -- make sure permissions in both IAM user and S3 Bucket are correct; PLUS make sure IAM User created with pragmatic access (should have option for user and password at creation)
   nz_df = s3read_using(read.csv, object=s3Filename_nz, bucket=s3BucketName)
   aus_df = s3read_using(read.csv, object=s3Filename_aus, bucket=s3BucketName)
+
+  ## Load Each Country's Shapefile
+  # Note: wasn't recognising file path when using "\\" so used "/" instead (P.S. it is shown on the deployment preview that it uses "/" and not "\")!
+  shp_lst = list(
+    "Australia" = st_read("./AUS_Region_Simplified_SHP/STE_2021_AUST_GDA2020.shp") %>% # path may change
+      select(`STE_NAME21`,`geometry`) %>%
+      rename(`Region`=`STE_NAME21`, `Geometry`=`geometry`) %>%
+      filter(!`Region` %in% c("Outside Australia","Other Territories")),
+    "New Zealand" = st_read("./NZ_Region_Simplified_SHP/regional-council-2023-clipped-generalised.shp") %>% # path may change
+      select(`REGC2023_2`,`geometry`) %>%
+      rename(`Region`=`REGC2023_2`,`Geometry`=`geometry`) %>%
+      mutate( `Region` = gsub("Region", "", `Region`), `Region` = str_trim(`Region`) ) %>%
+      filter(`Region` != "Area Outside")
+  )
   
   # Temporary text instructions (at startup)
   output$temp_text = renderText({"Click 'Apply' to get started!"})
@@ -38,7 +50,8 @@ function(input, output, session) {
   observeEvent(input$country, {
     if (input$country == "Australia") {rv$df = aus_df} else {rv$df = nz_df}
     rv$df = rv$df %>% mutate(
-      `date_posted` = as.Date(`date_posted`, format="%d-%m-%Y"),
+      # `date_posted` = as.Date(`date_posted`, format="%d-%m-%Y"),
+      `date_posted` = as.Date(`date_posted`, format="%Y-%m-%d"),
       `remote` = ifelse(`remote` == 'True', 'Remote', 'Non-Remote')
     )
     # update region options
@@ -61,8 +74,8 @@ function(input, output, session) {
     req(input$go) # executes following code if 'present' (not null)
     rv$data %>%
       arrange(desc(`date_posted`)) %>%
-      select(-c(`description_summ`,`city_lat`,`city_lng`))
-  }, options=list(scrollX=TRUE))
+      select(-c(`city_lat`,`city_lng`,`country`,`job_description`))
+  }, options=list(scrollX=TRUE, autoWidth = TRUE))
   
   # Dynamic Headers (H2)
   source('R/server_h2_header.R')
@@ -122,7 +135,7 @@ function(input, output, session) {
     req(input$go)
     data = rv$data %>%
       select(`date_posted`,`remote`) %>% na.omit() %>%
-      filter(`date_posted` > Sys.Date() %m+% months(-12)) %>% # past 12 months
+      filter(`date_posted` > Sys.Date() %m+% months(-3)) %>% # past 3 months
       group_by(`date_posted`,`remote`) %>% count() %>%
       pivot_wider(names_from=`remote`, values_from=`n`) %>%
       replace_na(list(`Non-Remote`=0, `Remote`=0)) %>% ungroup()
@@ -147,7 +160,8 @@ function(input, output, session) {
   source('R/server_job_map.R')
   output$jobs_map = renderPlotly({
     req(input$go)
-    create_map(rv$data, input$country)
+    country_shp = shp_lst[[input$country]]
+    create_map(rv$data, country_shp)
   })
   
   # Education Required Donut Chart
